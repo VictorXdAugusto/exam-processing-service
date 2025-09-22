@@ -18,14 +18,16 @@ func SetupRouter(
 	router := gin.Default()
 
 	createExamUseCase := usecase.NewCreateExamUseCase(examRepo, jobQueue)
+	getExamUseCase := usecase.NewGetExamUseCase(examRepo)
 
 	healthHandler := handler.NewHealthHandler()
-	examHandler := handler.NewExamHandler(createExamUseCase)
+	examHandler := handler.NewExamHandler(createExamUseCase, getExamUseCase)
 
 	api := router.Group("/api/v1")
 	{
 		api.GET("/health", healthHandler.HealthCheck)
 		api.POST("/exams", examHandler.CreateExam)
+		api.GET("/exams/:id", examHandler.GetExam)
 	}
 
 	return router

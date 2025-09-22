@@ -33,3 +33,24 @@ func (r *ExamRepositoryPostgres) Update(exam *entity.Exam) error {
 	_, err := r.DB.Exec(context.Background(), sql, exam.Status, exam.ID)
 	return err
 }
+
+func (r *ExamRepositoryPostgres) FindByID(id string) (*entity.Exam, error) {
+	sql := `SELECT id, patient_id, exam_type, status, created_at 
+	         FROM exams WHERE id = $1`
+
+	row := r.DB.QueryRow(context.Background(), sql, id)
+
+	var exam entity.Exam
+	err := row.Scan(
+		&exam.ID,
+		&exam.PatientID,
+		&exam.ExamType,
+		&exam.Status,
+		&exam.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &exam, nil
+}
