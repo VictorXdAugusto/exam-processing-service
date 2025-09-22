@@ -4,45 +4,53 @@ import (
 	"exam-processing-service/internal/domain/entity"
 	"exam-processing-service/internal/domain/repository"
 	"log"
+	"sync"
 	"time"
 )
 
 type Worker struct {
 	ID             int
 	ExamRepository repository.ExamRepository
+	Wg             *sync.WaitGroup
 }
 
-func NewWorker(id int, repo repository.ExamRepository) *Worker {
+func NewWorker(id int, repo repository.ExamRepository, wg *sync.WaitGroup) *Worker {
 	return &Worker{
 		ID:             id,
 		ExamRepository: repo,
+		Wg:             wg,
 	}
 }
 
 func (w *Worker) ProcessJobs(jobQueue <-chan *entity.Exam) {
 	for exam := range jobQueue {
-		time.Sleep(5 * time.Second)
-		log.Printf("Worker %d: iniciando processamento do exame %s", w.ID, exam.ID)
+		w.Wg.Add(1)
 
-		exam.Status = entity.StatusProcessing
-		if err := w.ExamRepository.Update(exam); err != nil {
-			log.Printf("Worker %d: ERRO ao atualizar status para 'processing' do exame %s: %v", w.ID, exam.ID, err)
-			continue
-		}
+		go func(e *entity.Exam) {
+			defer w.Wg.Done()
 
-		time.Sleep(5 * time.Second)
+			log.Printf("Worker %d: iniciando processamento do exame %s", w.ID, e.ID)
 
-		if time.Now().UnixNano()%10 == 0 {
-			exam.Status = entity.StatusFailed
-		} else {
-			exam.Status = entity.StatusDone
-		}
+			e.Status = entity.StatusProcessing
+			if err := w.ExamRepository.Update(e); err != nil {
+				log.Printf("Worker %d: ERRO ao atualizar status para 'processing' do exame %s: %v", w.ID, e.ID, err)
+				return
+			}
 
-		if err := w.ExamRepository.Update(exam); err != nil {
-			log.Printf("Worker %d: ERRO ao atualizar status final do exame %s: %v", w.ID, exam.ID, err)
-			continue
-		}
+			time.Sleep(5 * time.Second)
 
-		log.Printf("Worker %d: finalizou o processamento do exame %s com status %s", w.ID, exam.ID, exam.Status)
+			if time.Now().UnixNano()%10 == 0 {
+				e.Status = entity.StatusFailed
+			} else {
+				e.Status = entity.StatusDone
+			}
+
+			if err := w.ExamRepository.Update(e); err != nil {
+				log.Printf("Worker %d: ERRO ao atualizar status final do exame %s: %v", w.ID, e.ID, err)
+				return
+			}
+
+			log.Printf("Worker %d: finalizou o processamento do exame %s com status %s", w.ID, e.ID, e.Status)
+		}(exam)
 	}
 }
