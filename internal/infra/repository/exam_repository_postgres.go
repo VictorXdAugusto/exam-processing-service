@@ -27,3 +27,9 @@ func (r *ExamRepositoryPostgres) Save(exam *entity.Exam) error {
 	)
 	return err
 }
+
+func (r *ExamRepositoryPostgres) Update(exam *entity.Exam) error {
+	sql := `UPDATE exams SET status = $1 WHERE id = $2`
+	_, err := r.DB.Exec(context.Background(), sql, exam.Status, exam.ID)
+	return err
+}

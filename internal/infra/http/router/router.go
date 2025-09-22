@@ -1,26 +1,23 @@
 package router
 
 import (
-	"exam-processing-service/internal/infra/database"
+	"exam-processing-service/internal/domain/entity"
+	"exam-processing-service/internal/domain/repository"
 	"exam-processing-service/internal/infra/http/handler"
-	"exam-processing-service/internal/infra/repository"
 	"exam-processing-service/internal/usecase"
-	"log"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(
+	examRepo repository.ExamRepository,
+	jobQueue chan<- *entity.Exam,
+) *gin.Engine {
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	dbPool, err := database.NewPostgresConnection()
-	if err != nil {
-		log.Fatalf("could not connect to the database: %v", err)
-	}
-
-	examRepo := repository.NewExamRepositoryPostgres(dbPool)
-	createExamUseCase := usecase.NewCreateExamUseCase(examRepo)
+	createExamUseCase := usecase.NewCreateExamUseCase(examRepo, jobQueue)
 
 	healthHandler := handler.NewHealthHandler()
 	examHandler := handler.NewExamHandler(createExamUseCase)
